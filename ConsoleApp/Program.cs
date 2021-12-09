@@ -7,34 +7,70 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 
+using System.Reflection;
+using Topshelf;
 
 namespace ConsoleApp
 {
     class Program
     {
         private static string folderPath;
+        private static string baseUrl;
         private static Attendance attendance = new Attendance();
-       private static  string textFile = @"C:/Users/shifa/Desktop/machineAttendanceConfigure.txt";
+        private static string configFile = @"C:/Users/shifa/Desktop/machineAttendanceConfigure.txt";
 
         static void Main(string[] args)
         {
-            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            //Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-            Console.WriteLine("Folder Path : ");
-            folderPath = Console.ReadLine();
-            folderPath = $"{folderPath}";
+            //var parentDirectory = Directory.GetParent(Assembly.GetEntryAssembly().Location).Parent;
+            //configFile = parentDirectory.ToString() + "\\" + "config.txt";
+
+            //Console.WriteLine(File.Exists(configFile) ? "Running App" : "Directory Not Found!");
+
+            ////Console.WriteLine("Config File Path : ");
+            ////configFile = Console.ReadLine();
 
 
-            //TakeInputBl(attendance);
-            MonitorFolderBl();
-            Console.ReadKey();
+            ////MonitorFolderBl();
+            ////ReadFileWithExcelMapper(@"C:\Users\shifa\Desktop\test\attendanceMachineFile.xls");
+
+            //ReadFileWithXlReaderBl(@"C:\Users\shifa\Desktop\test\attendanceMachineFile.xls");
+            //Console.ReadKey();
+
+
+            var exitCode = HostFactory.Run(x =>
+            {
+                x.Service<AttendanceService>(s =>
+                {
+                    s.ConstructUsing(monitor => new AttendanceService());
+                    s.WhenStarted(monitor => monitor.FileWatch());
+                    s.WhenStopped(monitor => monitor.Stop());
+                });
+                x.RunAsLocalSystem();
+                x.SetServiceName("AttendanceService");
+                x.SetDisplayName("Attendance Service");
+                x.SetDescription("This is Description");
+            });
+            var exitCodeValue = (int)Convert.ChangeType(exitCode, exitCode.GetTypeCode());
+            Environment.ExitCode = exitCodeValue;
 
         }
+
 
         private static void MonitorFolderBl()
         {
             try
             {
+                if (File.Exists(configFile))
+                {
+                    // Read a text file line by line.  
+                    string[] lines = File.ReadAllLines(configFile);
+                    folderPath = $"{lines[4]}";
+                    baseUrl = lines[5];
+
+                }
+
                 FileSystemWatcher fileSystemWatcher = new FileSystemWatcher();
                 fileSystemWatcher.Path = folderPath;
                 fileSystemWatcher.Created += FileSystemWatcher_Created;
@@ -51,12 +87,12 @@ namespace ConsoleApp
 
             try
             {
-              
 
-                if (File.Exists(textFile))
+
+                if (File.Exists(configFile))
                 {
                     // Read a text file line by line.  
-                    string[] lines = File.ReadAllLines(textFile);
+                    string[] lines = File.ReadAllLines(configFile);
                     attendance.HrConfigId = Convert.ToInt32(lines[0]);
                     attendance.BranchId = Convert.ToInt32(lines[1]);
                     attendance.StartDate = Convert.ToDateTime(lines[2]);
@@ -65,6 +101,7 @@ namespace ConsoleApp
 
 
                 var jsonData = ReadFileWithXlReaderBl(e.FullPath);
+                //var jsonData = ReadFileWithExcelMapper(e.FullPath);
 
                 _ = CallWebAPIAsync(jsonData);
 
@@ -72,9 +109,28 @@ namespace ConsoleApp
             }
             catch (Exception exception)
             {
-                    throw;
+                throw;
             }
         }
+
+        //private static string ReadFileWithExcelMapper(string path)
+        //{
+
+        //    try
+        //    {
+        //        if (path == null) throw new ArgumentNullException(nameof(path));
+
+        //        var excelModels = new ExcelMapper(path) { HeaderRow = false }.Fetch<ExcelModel>();
+        //        return "";
+        //    }
+        //    catch (Exception e)
+        //    {
+
+        //        throw;
+        //    }
+        //}
+
+
         private static string ReadFileWithXlReaderBl(string path)
         {
             try
@@ -117,14 +173,12 @@ namespace ConsoleApp
                 throw;
             }
         }
-
-
         private static async Task CallWebAPIAsync(string jsonData)
         {
             try
             {
                 HttpClient client = new HttpClient();
-                client.BaseAddress = new Uri("http://localhost:44317/");
+                client.BaseAddress = new Uri(baseUrl);
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 var response = await client.PostAsync("api/HrAttendanceTest/SaveAttendanceAsync", new StringContent(jsonData, Encoding.UTF8, "application/json"));
@@ -136,42 +190,20 @@ namespace ConsoleApp
             }
             catch (Exception e)
             {
-              
-                throw;
-            }
-        }
-
-
-
-        private static void TakeInputBl(Attendance entity)
-        {
-
-            try
-            {
-                if (entity == null) throw new ArgumentNullException(nameof(entity));
-
-                Console.WriteLine("Hr Config Id : ");
-                entity.HrConfigId =Convert.ToInt32(Console.ReadLine());
-                Console.WriteLine();
-
-                Console.WriteLine("Branch Id :");
-                entity.BranchId = Convert.ToInt32(Console.ReadLine());
-                Console.WriteLine();
-
-                Console.WriteLine("Start Time :");
-                entity.StartDate = Convert.ToDateTime(Console.ReadLine());
-                Console.WriteLine();
-
-                Console.WriteLine("End Time :");
-                entity.EndDate = Convert.ToDateTime(Console.ReadLine());
-                Console.WriteLine();
-
-            }
-            catch (Exception e)
-            {
 
                 throw;
             }
         }
+
+
+
+        //private static IHostBuilder CreateHostBuilder(string[] args)
+        //{
+        //    return Host.CreateDefaultBuilder(args)
+        //        .ConfigureServices((_, services) =>
+        //            services.AddTransient<IGreeter, ConsoleGreeter>()
+        //                .AddTransient<IFooService, FooService>());
+        //}
+
     }
 }
