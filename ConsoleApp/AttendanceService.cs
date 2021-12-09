@@ -27,8 +27,8 @@ namespace ConsoleApp
         public void FileWatch()
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            var parentDirectory = Directory.GetParent(Assembly.GetEntryAssembly().Location).Parent;
-            configFile = parentDirectory.ToString() + "\\" + "config.txt";
+            var currentDirectory = Directory.GetCurrentDirectory();
+            configFile = currentDirectory.ToString() + "\\" + "config.txt";
             if (File.Exists(configFile))
             {
                 // Read a text file line by line.  
